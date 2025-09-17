@@ -1,6 +1,7 @@
 package com.myorg.app;
 
 import com.myorg.stacks.ClusterStack;
+import com.myorg.stacks.RdsStack;
 import com.myorg.stacks.Service01Stack;
 import com.myorg.stacks.VpcStack;
 import software.amazon.awscdk.App;
@@ -14,8 +15,12 @@ public class CursoAwsCdkApp {
         ClusterStack clusterStack = new ClusterStack(app, "Cluster", vpcStack.getVpc());
         clusterStack.addDependency(vpcStack);
 
+        RdsStack rdsStack = new RdsStack(app, "Rds", vpcStack.getVpc());
+        rdsStack.addDependency(vpcStack);
+
         Service01Stack service01Stack = new Service01Stack(app, "Service01", clusterStack.getCluster());
         service01Stack.addDependency(clusterStack);
+        service01Stack.addDependency(rdsStack);
 
         app.synth();
     }
