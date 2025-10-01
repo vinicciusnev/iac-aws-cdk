@@ -27,7 +27,7 @@ public class RdsStack extends Stack {
 
         DatabaseInstance databaseInstance = DatabaseInstance.Builder
                 .create(this, "Rds01")
-                .instanceIdentifier("aws-microservice01-db")
+                .instanceIdentifier("product-service-db")
                 .engine(DatabaseInstanceEngine.mysql(MySqlInstanceEngineProps.builder()
                                 .version(MysqlEngineVersion.VER_8_0_40)
                         .build()))
