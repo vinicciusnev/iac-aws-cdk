@@ -14,24 +14,24 @@ import java.util.HashMap;
 import java.util.Map;
 
 
-public class Service01Stack extends Stack {
-    public Service01Stack(final Construct scope, final String id, Cluster cluster, SnsTopic productEventsTopic) {
+public class ProductServiceStack extends Stack {
+    public ProductServiceStack(final Construct scope, final String id, Cluster cluster, SnsTopic productEventsTopic) {
         this(scope, id, null, cluster, productEventsTopic);
     }
 
-    public Service01Stack(final Construct scope, final String id, final StackProps props, Cluster cluster, SnsTopic productEventsTopic) {
+    public ProductServiceStack(final Construct scope, final String id, final StackProps props, Cluster cluster, SnsTopic productEventsTopic) {
         super(scope, id, props);
 
         Map<String, String> envVariables = new HashMap<>();
-        envVariables.put("SPRING_DATASOURCE_URL", "jdbc:mariadb://" + Fn.importValue("rds-endpoint") + ":3306/aws_microservice01?createDatabaseIfNotExist=true");
+        envVariables.put("SPRING_DATASOURCE_URL", "jdbc:mariadb://" + Fn.importValue("rds-endpoint") + ":3306/product_service?createDatabaseIfNotExist=true");
         envVariables.put("SPRING_DATASOURCE_USERNAME", "admin");
         envVariables.put("SPRING_DATASOURCE_PASSWORD", Fn.importValue("rds-password"));
         envVariables.put("AWS_REGION", "us-east-1");
         envVariables.put("AWS_SNS_TOPIC_PRODUCT_EVENTS_ARN", productEventsTopic.getTopic().getTopicArn());
 
-        ApplicationLoadBalancedFargateService service01 = ApplicationLoadBalancedFargateService.Builder
-                .create(this, "ALB01")
-                .serviceName("service-01")
+        ApplicationLoadBalancedFargateService productService = ApplicationLoadBalancedFargateService.Builder
+                .create(this, "ProductService")
+                .serviceName("product-service")
                 .cluster(cluster)
                 .cpu(512)
                 .memoryLimitMiB(1024)
@@ -39,38 +39,38 @@ public class Service01Stack extends Stack {
                 .listenerPort(8080)
                 .taskImageOptions(
                         ApplicationLoadBalancedTaskImageOptions.builder()
-                                .containerName("spring-aws-microservice01")
-                                .image(ContainerImage.fromRegistry("vinicciusdev/spring-aws-microservice01:1.5.0"))
+                                .containerName("product-service")
+                                .image(ContainerImage.fromRegistry("vinicciusdev/product-service:1.5.0"))
                                 .containerPort(8080)
                                 .logDriver(LogDriver.awsLogs(AwsLogDriverProps.builder()
-                                        .logGroup(LogGroup.Builder.create(this, "Service01LogGroup")
-                                                .logGroupName("Service01")
+                                        .logGroup(LogGroup.Builder.create(this, "ProductServiceLogGroup")
+                                                .logGroupName("ProductService")
                                                 .removalPolicy(RemovalPolicy.DESTROY)
                                                 .build())
-                                        .streamPrefix("Service01")
+                                        .streamPrefix("ProductService")
                                         .build()))
                                 .environment(envVariables)
                                 .build())
                 .publicLoadBalancer(true)
                 .build();
 
-        service01.getTargetGroup().configureHealthCheck(new HealthCheck.Builder()
+        productService.getTargetGroup().configureHealthCheck(new HealthCheck.Builder()
                 .path("/actuator/health")
                 .port("8080")
                 .healthyHttpCodes("200")
                 .build());
 
-        ScalableTaskCount scalableTaskCount = service01.getService().autoScaleTaskCount(EnableScalingProps.builder()
+        ScalableTaskCount scalableTaskCount = productService.getService().autoScaleTaskCount(EnableScalingProps.builder()
                 .minCapacity(2)
                 .maxCapacity(4)
                 .build());
 
-        scalableTaskCount.scaleOnCpuUtilization("Service01AutoScaling", CpuUtilizationScalingProps.builder()
+        scalableTaskCount.scaleOnCpuUtilization("ProductServiceAutoScaling", CpuUtilizationScalingProps.builder()
                 .targetUtilizationPercent(50)
                 .scaleInCooldown(Duration.seconds(60))
                 .scaleOutCooldown(Duration.seconds(60))
                 .build());
 
-        productEventsTopic.getTopic().grantPublish(service01.getTaskDefinition().getTaskRole());
+        productEventsTopic.getTopic().grantPublish(productService.getTaskDefinition().getTaskRole());
     }
 }
